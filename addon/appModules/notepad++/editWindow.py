@@ -149,14 +149,12 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 
 	def refreshFunctions(self, gesture):
 		strLines = self.getDocumentLines()
-		if self.CURRENT_LINES != len(strLines):
-			for idx, l in enumerate(strLines):
-				funcName = re.search('(?<=def\s)\w+', l)
-				if funcName != None:
-					parameters = re.search('\(([^)]+)\)', l).group(0).replace("(","",3).split(",")
-					function = Function(funcName.group(0), idx, parameters)
-					self.FUNCTIONS[function.name] = function
-			self.CURRENT_LINES = len(strLines)
+		for idx, l in enumerate(strLines):
+			funcName = re.search('(?<=def\s)\w+', l)
+			if funcName != None:
+				parameters = re.search('\(([^)]+)\)', l).group(0).replace("(","",3).split(",")
+				function = Function(funcName.group(0), idx, parameters)
+				self.FUNCTIONS[function.name] = function
 
 	def script_findLines(self, gesture):
 		self.refreshFunctions(gesture)
