@@ -27,8 +27,6 @@ class Function:
 
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
-	CURRENT_LINES = -1
-	FUNCTIONS = {}
 
 	def event_loseFocus(self):
 		#Hack: finding the edit field from the foreground window is unreliable, so cache it here.
@@ -149,28 +147,30 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 
 	def refreshFunctions(self, gesture):
 		strLines = self.getDocumentLines()
+		functions = {}
 		for idx, l in enumerate(strLines):
 			funcName = re.search('(?<=def\s)\w+', l)
 			if funcName != None:
 				parameters = re.search('\(([^)]+)\)', l).group(0).replace("(","",3).split(",")
 				function = Function(funcName.group(0), idx, parameters)
-				self.FUNCTIONS[function.name] = function
+				functions[function.name] = function
+		return functions
 
 	def script_findLines(self, gesture):
-		self.refreshFunctions(gesture)
-		ui.message("There are %d functions" % len(self.FUNCTIONS))
-		for key, value in self.FUNCTIONS.items():
+		functions = self.refreshFunctions(gesture)
+		ui.message("There are %d functions" % len(functions))
+		for key, value in functions.items():
 		    ui.message(value.name)
 		
 	def script_functionParameters(self, gesture):
-		self.refreshFunctions(gesture)
+		functions = self.refreshFunctions(gesture)
 		strLines = self.getDocumentLines()
 		docInfo = self.parent.next.next.firstChild.getChild(2).name
 		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
 		curLine = strLines[curLineNum - 1].strip()
 		funcName = re.search('([a-z_][a-z0-9_]*)\($', curLine, re.IGNORECASE)
 		if funcName != None:
-			function = self.FUNCTIONS[funcName.group(1)]
+			function = functions[funcName.group(1)]
 			ui.message("Parameters for %s are" % funcName.group(1))
 			for p in function.parameters:
 				ui.message(p)
