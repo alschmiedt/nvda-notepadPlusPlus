@@ -15,11 +15,20 @@ import textInfos
 import tones
 import ui
 import eventHandler
+import re
+import unicodedata
 
 addonHandler.initTranslation()
+class Function:
+    def __init__(self, name, lineNum, parameters):
+		self.name = name
+		self.lineNum = lineNum
+		self.parameters = parameters
 
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
+	CURRENT_LINES = -1
+	FUNCTIONS = {}
 
 	def event_loseFocus(self):
 		#Hack: finding the edit field from the foreground window is unreliable, so cache it here.
@@ -127,10 +136,48 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 
 	def script_reportLineInfo(self, gesture):
 		ui.message(self.parent.next.next.firstChild.getChild(2).name) 
+		ui.message("we are here %d" % len(self.value))
+
 
 	#Translators: Script that announces information about the current line.
 	script_reportLineInfo.__doc__ = _("speak the line info item on the status bar")
 	script_reportLineInfo.category = "Notepad++"
+	
+	def getDocumentLines(self):
+		lines = self.makeTextInfo(textInfos.POSITION_CARET)._getStoryText().split("\n")
+		return [unicodedata.normalize('NFKD', l).encode('ascii','ignore') for l in lines]
+
+	def refreshFunctions(self, gesture):
+		strLines = self.getDocumentLines()
+		if self.CURRENT_LINES != len(strLines):
+			for idx, l in enumerate(strLines):
+				funcName = re.search('(?<=def\s)\w+', l)
+				if funcName != None:
+					parameters = re.search('\(([^)]+)\)', l).group(0).replace("(","",3).split(",")
+					function = Function(funcName.group(0), idx, parameters)
+					self.FUNCTIONS[function.name] = function
+			self.CURRENT_LINES = len(strLines)
+
+	def script_findLines(self, gesture):
+		self.refreshFunctions(gesture)
+		ui.message("There are %d functions" % len(self.FUNCTIONS))
+		for key, value in self.FUNCTIONS.items():
+		    ui.message(value.name)
+		
+	def script_functionParameters(self, gesture):
+		self.refreshFunctions(gesture)
+		strLines = self.getDocumentLines()
+		docInfo = self.parent.next.next.firstChild.getChild(2).name
+		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
+		curLine = strLines[curLineNum - 1].strip()
+		funcName = re.search('([a-z_][a-z0-9_]*)\($', curLine, re.IGNORECASE)
+		if funcName != None:
+			function = self.FUNCTIONS[funcName.group(1)]
+			ui.message("Parameters for %s are" % funcName.group(1))
+			for p in function.parameters:
+				ui.message(p)
+				
+				
 
 	def script_reportFindResult(self, gesture):
 		old = self.makeTextInfo(textInfos.POSITION_SELECTION)
@@ -146,7 +193,7 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 	#Translators: when pressed, goes to    the Next search result in Notepad++
 	script_reportFindResult.__doc__ = _("Queries the next or previous search result and speaks the selection and current line of it.")
 	script_reportFindResult.category = "Notepad++"
-
+	
 	__gestures = {
 		"kb:control+b" : "goToMatchingBrace",
 		"kb:f2": "goToNextBookmark",
@@ -157,4 +204,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		"kb:nvda+g": "goToFirstOverflowingCharacter",
 		"kb:f3" : "reportFindResult",
 		"kb:shift+f3" : "reportFindResult",
+		"kb:nvda+shift+q" : "findLines",
+		"kb:nvda+shift+r" : "functionParameters",
 	}
