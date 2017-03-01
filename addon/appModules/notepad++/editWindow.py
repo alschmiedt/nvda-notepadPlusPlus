@@ -25,9 +25,22 @@ class Function:
 		self.lineNum = lineNum
 		self.parameters = parameters
 
+# indent_level(int): num of either tabs or spaces
+# block_type(string): statement keyword
+# stmt_info(string): additional information about stmt i.e conditionals/function name
+class BlockStmts:
+	def __init__(self, indent_level, block_type, stmt_info):
+		self.indent_level = indent_level
+		self.block_type = block_type
+		self.stmt_info = stmt_info
+		
+		
+
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
-
+	StmtIdentifiers = ["def", "while", "if", "elif", "else", "for", "try", "with", "class",
+		"except", "finally"]
+		
 	def event_loseFocus(self):
 		#Hack: finding the edit field from the foreground window is unreliable, so cache it here.
 		self.appModule.edit = self
@@ -134,7 +147,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 
 	def script_reportLineInfo(self, gesture):
 		ui.message(self.parent.next.next.firstChild.getChild(2).name) 
-		ui.message("we are here %d" % len(self.value))
 
 
 	#Translators: Script that announces information about the current line.
@@ -175,8 +187,30 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 			for p in function.parameters:
 				ui.message(p)
 				
-				
-
+	def find_block(self, stmtList, curLineIndent):
+		while(len(stmtList) != 0):
+			stmt = stmtList.pop()
+			if(stmt.indent_level < curLineIndent):
+				return stmt.block_type + stmt.stmt_info
+		return "You are at outer scope"
+	
+	def find_indent(self, string):
+		return len(string) - len(string.lstrip(' '))
+		
+	def script_identifyBlock(self, gesture):
+		stmtList = []
+		strLines = self.getDocumentLines()
+		docInfo = self.parent.next.next.firstChild.getChild(2).name
+		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
+		curLineIndent = self.find_indent(strLines[curLineNum-1])
+		for idx in range(0, curLineNum-1):
+			currentLine = strLines[idx]
+			firstWord = re.search("([a-z][a-z]*)", currentLine).group(0)
+			if firstWord in self.StmtIdentifiers:
+				stmtList.append(BlockStmts(self.find_indent(currentLine), firstWord, ""))
+		result = self.find_block(stmtList, curLineIndent)
+		ui.message(result)
+				  
 	def script_reportFindResult(self, gesture):
 		old = self.makeTextInfo(textInfos.POSITION_SELECTION)
 		gesture.send()
@@ -204,4 +238,5 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		"kb:shift+f3" : "reportFindResult",
 		"kb:nvda+shift+q" : "findLines",
 		"kb:nvda+shift+r" : "functionParameters",
+		"kb:nvda+shift+t" : "identifyBlock",
 	}
