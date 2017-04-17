@@ -151,7 +151,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 
 	def script_reportLineInfo(self, gesture):
 		ui.message(self.parent.next.next.firstChild.getChild(2).name) 
-		ui.message("we are here %d" % len(self.value))
 
 
 	#Translators: Script that announces information about the current line.
@@ -215,21 +214,16 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 			return str(ie)
 
 	def script_checkSpaces(self, gesture):
-		ui.message("HERE1")
 		strLines = self.getDocumentLines()
 		docInfo = self.parent.next.next.firstChild.getChild(2).name
-		ui.message("HERE2")
 		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
 		lineSubSet = strLines[0:curLineNum]
-		ui.message("HERE3")
 		fileText = '\n'.join(lineSubSet)
-		ui.message(fileText)
-		ui.message("HERE4")
 		s = self.findIndents(fileText)
 		ui.message(s)
 
 	
-	def find_block(stmtList, curLineIndent):
+	def find_block(self, stmtList, curLineIndent):
 		while(len(stmtList) != 0):
 			stmt = stmtList.pop()
 			if(stmt.indent_level < curLineIndent):
@@ -240,12 +234,11 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		return len(string) - len(string.lstrip(' '))
 		
 	def script_identifyBlock(self, gesture):
-		ui.message("HERE ONE")
 		stmtList = []
 		strLines = self.getDocumentLines()
 		docInfo = self.parent.next.next.firstChild.getChild(2).name
 		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
-		curLineIndent = find_indent(strLines[curLineNum-1])
+		curLineIndent = self.find_indent(strLines[curLineNum-1])
 		for idx in range(0, curLineNum-1):
 			currentLine = strLines[idx]
 			firstWord = re.search("([a-z][a-z]*)", currentLine).group(0)
@@ -257,7 +250,9 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 					extraInfo = extraInfo.replace("(", "")
 					extraInfo = extraInfo.replace(")", "")
 				stmtList.append(BlockStmts(self.find_indent(currentLine), firstWord, extraInfo))
-				
+		result = self.find_block(stmtList, curLineIndent)
+		ui.message(result)
+				  
 	def script_reportFindResult(self, gesture):
 		old = self.makeTextInfo(textInfos.POSITION_SELECTION)
 		gesture.send()
