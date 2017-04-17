@@ -17,6 +17,10 @@ import ui
 import eventHandler
 import re
 import unicodedata
+from tokenize import tokenize, untokenize, NUMBER, STRING, NAME, OP, generate_tokens, INDENT
+from io import BytesIO
+from StringIO import StringIO
+import sys
 
 addonHandler.initTranslation()
 class Function:
@@ -25,9 +29,22 @@ class Function:
 		self.lineNum = lineNum
 		self.parameters = parameters
 
+# indent_level(int): num of either tabs or spaces
+# block_type(string): statement keyword
+# stmt_info(string): additional information about stmt i.e conditionals/function name
+class BlockStmts:
+	def __init__(self, indent_level, block_type, stmt_info):
+		self.indent_level = indent_level
+		self.block_type = block_type
+		self.stmt_info = stmt_info
+		
+		
+
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
-
+	StmtIdentifiers = ["def", "while", "if", "elif", "else", "for", "try", "with", "class",
+		"except", "finally"]
+		
 	def event_loseFocus(self):
 		#Hack: finding the edit field from the foreground window is unreliable, so cache it here.
 		self.appModule.edit = self
@@ -175,8 +192,72 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 			for p in function.parameters:
 				ui.message(p)
 				
-				
+	def findIndents(self,s):
+		old_stdout = sys.stdout
+		result = StringIO()
+		sys.stdout = result
+		try:
+			g = tokenize(BytesIO(s.encode('utf-8')).readline)
+			sys.stdout = old_stdout
+			result_string = result.getvalue()
+			result_array = result_string.split("\n")
+			for i in result_array:
+				line_array = i.split("\t")
+				print("THIS IS A LINE")
+				if (len(line_array) > 1 and line_array[1] =="INDENT"):
+					print(line_array[1])
+				elif(len(line_array) > 1 and line_array[1] == "DEDENT"):
+					print(line_array[1])
+			print(result_string)
+			return "correct"
+		except IndentationError as ie:
+			sys.stdout = old_stdout
+			return str(ie)
 
+	def script_checkSpaces(self, gesture):
+		ui.message("HERE1")
+		strLines = self.getDocumentLines()
+		docInfo = self.parent.next.next.firstChild.getChild(2).name
+		ui.message("HERE2")
+		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
+		lineSubSet = strLines[0:curLineNum]
+		ui.message("HERE3")
+		fileText = '\n'.join(lineSubSet)
+		ui.message(fileText)
+		ui.message("HERE4")
+		s = self.findIndents(fileText)
+		ui.message(s)
+
+	
+	def find_block(stmtList, curLineIndent):
+		while(len(stmtList) != 0):
+			stmt = stmtList.pop()
+			if(stmt.indent_level < curLineIndent):
+				return stmt.block_type + stmt.stmt_info
+		return "You are at outer scope"
+	
+	def find_indent(self, string):
+		return len(string) - len(string.lstrip(' '))
+		
+	def script_identifyBlock(self, gesture):
+		ui.message("HERE ONE")
+		stmtList = []
+		strLines = self.getDocumentLines()
+		docInfo = self.parent.next.next.firstChild.getChild(2).name
+		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
+		curLineIndent = find_indent(strLines[curLineNum-1])
+		for idx in range(0, curLineNum-1):
+			currentLine = strLines[idx]
+			firstWord = re.search("([a-z][a-z]*)", currentLine).group(0)
+			if firstWord in self.StmtIdentifiers:
+				if firstWord == "def":
+					extraInfo = re.search("^[^\(]+", currentLine).group(0)
+				else:
+					extraInfo = re.search("^[^\:]+", currentLine).group(0)
+					extraInfo = extraInfo.replace("(", "")
+					extraInfo = extraInfo.replace(")", "")
+				stmtList.append(BlockStmts(self.find_indent(currentLine), firstWord, extraInfo))
+				
 	def script_reportFindResult(self, gesture):
 		old = self.makeTextInfo(textInfos.POSITION_SELECTION)
 		gesture.send()
@@ -187,7 +268,7 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		else:
 			#Translators: Message shown when there are no more search results in this direction using the notepad++ find command.
 			speech.speakMessage(_("No more search results in this direction."))
-	
+		
 	#Translators: when pressed, goes to    the Next search result in Notepad++
 	script_reportFindResult.__doc__ = _("Queries the next or previous search result and speaks the selection and current line of it.")
 	script_reportFindResult.category = "Notepad++"
@@ -204,4 +285,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		"kb:shift+f3" : "reportFindResult",
 		"kb:nvda+shift+q" : "findLines",
 		"kb:nvda+shift+r" : "functionParameters",
+		"kb:nvda+shift+t" : "identifyBlock",
+		"kb:nvda+shift+s" : "checkSpaces",
 	}

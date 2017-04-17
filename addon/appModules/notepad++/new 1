@@ -1,0 +1,6 @@
+def hi():
+	blah = 5
+	hi = 6
+	if(x ==5):
+		blah = 6
+			else:
