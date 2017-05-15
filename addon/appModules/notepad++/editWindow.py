@@ -24,7 +24,7 @@ import sys
 
 addonHandler.initTranslation()
 class Function:
-    def __init__(self, name, lineNum, parameters):
+	def __init__(self, name, lineNum, parameters):
 		self.name = name
 		self.lineNum = lineNum
 		self.parameters = parameters
@@ -33,10 +33,10 @@ class Function:
 # block_type(string): statement keyword
 # stmt_info(string): additional information about stmt i.e conditionals/function name
 class BlockStmts:
-	def __init__(self, indent_level, block_type):
+	def __init__(self, indent_level, block_type, stmt_info):
 		self.indent_level = indent_level
 		self.block_type = block_type
-		self.stmt_info = ""
+		self.stmt_info = stmt_info
 		self.preStmts = []
 		self.block_indent = -1
 	def addInfo(self,extra_info):
@@ -49,8 +49,7 @@ class BlockStmts:
 
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
-	StmtIdentifiers = ["def", "while", "if", "elif", "else", "for", "try", "with", "class",
-		"except", "finally"]
+	StmtIdentifiers = ["def", "while", "if", "elif", "else", "for", "try", "with", "class", "except", "finally"]
 		
 	def event_loseFocus(self):
 		#Hack: finding the edit field from the foreground window is unreliable, so cache it here.
@@ -183,7 +182,7 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		functions = self.refreshFunctions(gesture)
 		ui.message("There are %d functions" % len(functions))
 		for key, value in functions.items():
-		    ui.message(value.name)
+			ui.message(value.name)
 		
 	def script_functionParameters(self, gesture):
 		functions = self.refreshFunctions(gesture)
@@ -221,14 +220,16 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 			if " " in spacesString:
 				return False
 		return True
+	
 	def script_identifyBlock(self, gesture):
 		stmtList = []
 		strLines = self.getDocumentLines()
 		docInfo = self.parent.next.next.firstChild.getChild(2).name
 		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
 		curLineIndent = self.find_indent(strLines[curLineNum-1])
-		for idx in range(0, curLineNum-1):
+		for idx in range(0, curLineNum):
 			currentLine = strLines[idx]
+			ui.message(currentLine)
 			beginningSpaces = re.search("[\t\s+]*", currentLine).group(0)
 			if (self.checkSpaces(beginningSpaces)):
 				if currentLine.lstrip() != "":
@@ -277,29 +278,36 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 	def script_checkIndents(self, gesture):
 		stmtList = []
 		strLines = self.getDocumentLines()
-		for idx in range(0, len(strLines) - 1):
+		docInfo = self.parent.next.next.firstChild.getChild(2).name
+		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
+		for idx in range(0, curLineNum):
 			line = strLines[idx]
+			beginningSpaces = re.search("[\t\s+]*", line).group(0)
 			if line.strip() != "":
-				firstword = re.search("([a-z][a-z]*)", line).group(0)
-				if firstword in self.StmtIdentifiers:
-					newBlock = BlockStmts(self.find_indent(line), firstword)
-					if firstword in ["else", "elif"]:
-						newBlock.addPreStmt(["if", "elif"])
-					elif firstword in ["except", "finally"]:
-						newBlock.addPreStmt(["try","except"])
-					else: 
-						if (self.checkLine(line, list(stmtList))) != True:
+				if self.checkSpaces(beginningSpaces):
+					firstword = re.search("([a-z][a-z]*)", line).group(0)
+					if firstword in self.StmtIdentifiers:
+						newBlock = BlockStmts(self.find_indent(line), firstword, "")
+						if firstword in ["else", "elif"]:
+							newBlock.addPreStmt(["if", "elif"])
+						elif firstword in ["except", "finally"]:
+							newBlock.addPreStmt(["try","except"])
+						else: 
+							if (self.checkLine(line, list(stmtList))) != True:
+								ui.message( "Error on line " + str(idx + 1))
+								return
+						if(len(newBlock.preStmts) != 0 and self.checkPreStmts(newBlock, list(stmtList)) != True):
 							ui.message( "Error on line " + str(idx + 1))
 							return
-					if(len(newBlock.preStmts) != 0 and self.checkPreStmts(newBlock, list(stmtList)) != True):
-						ui.message( "Error on line " + str(idx + 1))
-						return
-					stmtList.append(newBlock)
+						stmtList.append(newBlock)
+					else:
+						newList = list(stmtList)
+						if (self.checkLine(line, newList) != True):
+							ui.message( "Error on line " + str(idx + 1))
+							return
 				else:
-					newList = list(stmtList)
-					if (self.checkLine(line, newList) != True):
-						ui.message( "Error on line " + str(idx + 1))
-						return
+					ui.message("mixed spaces and tabs on line " + str(idx + 1))
+					return
 		ui.message( "Good Indentation")
 		return
 
