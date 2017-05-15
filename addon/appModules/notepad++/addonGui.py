@@ -55,6 +55,11 @@ class SettingsDialog(gui.SettingsDialog):
 		self.lineLengthIndicatorCheckBox = wx.CheckBox(self, wx.NewId(), label=_("Enable &line length indicator"))
 		self.lineLengthIndicatorCheckBox.SetValue(config.conf["notepadPp"]["lineLengthIndicator"])
 		settingsSizer.Add(self.lineLengthIndicatorCheckBox, border=10, flag=wx.BOTTOM)
+		#
+		self.changeToSpaces = wx.CheckBox(self, wx.NewId(), label=_("Change To Spaces"))
+		self.changeToSpaces.SetValue(config.conf["notepadPp"]["changeToSpaces"])
+		settingsSizer.Add(self.changeToSpaces, border=10, flag=wx.BOTTOM)
+		
 		maxLineLengthSizer = wx.BoxSizer(wx.HORIZONTAL)
 		# Translators: Setting for maximum line length used by line length indicator
 		maxLineLengthLabel = wx.StaticText(self, -1, label=_("&Maximum line length:"))
@@ -69,4 +74,5 @@ class SettingsDialog(gui.SettingsDialog):
 	def onOk(self, evt):
 		config.conf["notepadPp"]["lineLengthIndicator"] = self.lineLengthIndicatorCheckBox.IsChecked()
 		config.conf["notepadPp"]["maxLineLength"] = int(self.maxLineLengthEdit.GetValue())
+		config.conf["notepadPp"]["changeToSpaces"] = self.changeToSpaces.IsChecked()
 		super(SettingsDialog, self).onOk(evt)

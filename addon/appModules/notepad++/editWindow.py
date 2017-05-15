@@ -33,12 +33,19 @@ class Function:
 # block_type(string): statement keyword
 # stmt_info(string): additional information about stmt i.e conditionals/function name
 class BlockStmts:
-	def __init__(self, indent_level, block_type, stmt_info):
+	def __init__(self, indent_level, block_type):
 		self.indent_level = indent_level
 		self.block_type = block_type
-		self.stmt_info = stmt_info
-		
-		
+		self.stmt_info = ""
+		self.preStmts = []
+		self.block_indent = -1
+	def addInfo(self,extra_info):
+		self.stmt_info = extra_info
+	def addPreStmt(self,pre_stmt):
+		self.preStmts = pre_stmt
+	def addBlockIndent(self,block_indent):
+		self.block_indent = block_indent
+
 
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
@@ -252,7 +259,63 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 				stmtList.append(BlockStmts(self.find_indent(currentLine), firstWord, extraInfo))
 		result = self.find_block(stmtList, curLineIndent)
 		ui.message(result)
+			
+	def checkPreStmts(self,blockStmt, stmt_list):
+		while(len(stmt_list)):
+			curStmt = stmt_list.pop()
+			if curStmt.block_type in blockStmt.preStmts and curStmt.indent_level == blockStmt.indent_level:
+				return True
+			elif len(stmt_list) == 0:
+				return False
+			
+
+	
+	def checkLine(self,line, stmt_list):
+		curIndent = self.find_indent(line)
+		stmt_length = len(stmt_list)
+		for idx in range(0, stmt_length):
+			curStmt = stmt_list.pop()
+			if curIndent > curStmt.indent_level:
+				if curStmt.block_indent == -1:
+					curStmt.addBlockIndent(curIndent)
+					return True
+				elif curStmt.block_indent == curIndent:
+					return True
+				else:
+					return False
+				break
+		return True
+
 				  
+	def script_checkIndents(self, gesture):
+		stmtList = []
+		strLines = self.getDocumentLines()
+		for idx in range(0, len(strLines) - 1):
+			line = strLines[idx]
+			if line.strip() != "":
+				firstword = re.search("([a-z][a-z]*)", line).group(0)
+				if firstword in self.StmtIdentifiers:
+					newBlock = BlockStmts(self.find_indent(line), firstword)
+					if firstword in ["else", "elif"]:
+						newBlock.addPreStmt(["if", "elif"])
+					elif firstword in ["except", "finally"]:
+						newBlock.addPreStmt(["try","except"])
+					else: 
+						if (self.checkLine(line, list(stmtList))) != True:
+							ui.message( "Error on line " + str(idx + 1))
+							return
+					if(len(newBlock.preStmts) != 0 and self.checkPreStmts(newBlock, list(stmtList)) != True):
+						ui.message( "Error on line " + str(idx + 1))
+						return
+					stmtList.append(newBlock)
+				else:
+					newList = list(stmtList)
+					if (self.checkLine(line, newList) != True):
+						ui.message( "Error on line " + str(idx + 1))
+						return
+		ui.message( "Good Indentation")
+		return
+
 	def script_reportFindResult(self, gesture):
 		old = self.makeTextInfo(textInfos.POSITION_SELECTION)
 		gesture.send()
@@ -282,4 +345,5 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		"kb:nvda+shift+r" : "functionParameters",
 		"kb:nvda+shift+t" : "identifyBlock",
 		"kb:nvda+shift+s" : "checkSpaces",
+		"kb:nvda+shift+h" : "checkIndents",
 	}
