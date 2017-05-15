@@ -198,37 +198,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 			for p in function.parameters:
 				ui.message(p)
 				
-	def findIndents(self,s):
-		old_stdout = sys.stdout
-		result = StringIO()
-		sys.stdout = result
-		try:
-			g = tokenize(BytesIO(s.encode('utf-8')).readline)
-			sys.stdout = old_stdout
-			result_string = result.getvalue()
-			result_array = result_string.split("\n")
-			for i in result_array:
-				line_array = i.split("\t")
-				print("THIS IS A LINE")
-				if (len(line_array) > 1 and line_array[1] =="INDENT"):
-					print(line_array[1])
-				elif(len(line_array) > 1 and line_array[1] == "DEDENT"):
-					print(line_array[1])
-			print(result_string)
-			return "correct"
-		except IndentationError as ie:
-			sys.stdout = old_stdout
-			return str(ie)
-
-	def script_checkSpaces(self, gesture):
-		strLines = self.getDocumentLines()
-		docInfo = self.parent.next.next.firstChild.getChild(2).name
-		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
-		lineSubSet = strLines[0:curLineNum]
-		fileText = '\n'.join(lineSubSet)
-		s = self.findIndents(fileText)
-		ui.message(s)
-
 	
 	def find_block(self, stmtList, curLineIndent):
 		while(len(stmtList) != 0):
@@ -238,8 +207,20 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		return "You are at outer scope"
 	
 	def find_indent(self, string):
-		return len(string) - len(string.lstrip(' '))
+		if config.conf["notepadPp"]["changeToSpaces"]:
+			spaces = len(string) - len(string.lstrip(' '))
+		else:
+			spaces = len(string) - len(string.lstrip('\t'))
+		return spaces
 		
+	def checkSpaces(self, spacesString):
+		if config.conf["notepadPp"]["changeToSpaces"]:
+			if "\t" in spacesString:
+				return False
+		else:
+			if " " in spacesString:
+				return False
+		return True
 	def script_identifyBlock(self, gesture):
 		stmtList = []
 		strLines = self.getDocumentLines()
@@ -248,15 +229,21 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		curLineIndent = self.find_indent(strLines[curLineNum-1])
 		for idx in range(0, curLineNum-1):
 			currentLine = strLines[idx]
-			firstWord = re.search("([a-z][a-z]*)", currentLine).group(0)
-			if firstWord in self.StmtIdentifiers:
-				if firstWord == "def":
-					extraInfo = re.search("^[^\(]+", currentLine).group(0)
-				else:
-					extraInfo = re.search("^[^\:]+", currentLine).group(0)
-					extraInfo = extraInfo.replace("(", "")
-					extraInfo = extraInfo.replace(")", "")
-				stmtList.append(BlockStmts(self.find_indent(currentLine), firstWord, extraInfo))
+			beginningSpaces = re.search("[\t\s+]*", currentLine).group(0)
+			if (self.checkSpaces(beginningSpaces)):
+				if currentLine.lstrip() != "":
+					firstWord = re.search("([a-z][a-z]*)", currentLine).group(0)
+					if firstWord in self.StmtIdentifiers:
+						if firstWord == "def":
+							extraInfo = re.search("^[^\(]+", currentLine).group(0)
+						else:
+							extraInfo = re.search("^[^\:]+", currentLine).group(0)
+							extraInfo = extraInfo.replace("(", "")
+							extraInfo = extraInfo.replace(")", "")
+						stmtList.append(BlockStmts(self.find_indent(currentLine), firstWord, extraInfo))
+			else:
+				ui.message("you have mixed spaces and tabs")
+				return
 		result = self.find_block(stmtList, curLineIndent)
 		ui.message(result)
 			
@@ -344,6 +331,5 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		"kb:nvda+shift+q" : "findLines",
 		"kb:nvda+shift+r" : "functionParameters",
 		"kb:nvda+shift+t" : "identifyBlock",
-		"kb:nvda+shift+s" : "checkSpaces",
 		"kb:nvda+shift+h" : "checkIndents",
 	}
