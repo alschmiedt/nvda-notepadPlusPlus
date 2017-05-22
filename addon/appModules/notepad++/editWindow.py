@@ -229,7 +229,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		curLineIndent = self.find_indent(strLines[curLineNum-1])
 		for idx in range(0, curLineNum):
 			currentLine = strLines[idx]
-			ui.message(currentLine)
 			beginningSpaces = re.search("[\t\s+]*", currentLine).group(0)
 			if (self.checkSpaces(beginningSpaces)):
 				if currentLine.lstrip() != "":
@@ -251,7 +250,7 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 	def checkPreStmts(self,blockStmt, stmt_list):
 		while(len(stmt_list)):
 			curStmt = stmt_list.pop()
-			if curStmt.block_type in blockStmt.preStmts and curStmt.indent_level == blockStmt.indent_level:
+			if curStmt.block_type in blockStmt.preStmts and curStmt.indent_level == blockStmt.indent_level and curStmt.block_indent != -1:
 				return True
 			elif len(stmt_list) == 0:
 				return False
@@ -272,6 +271,8 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 				else:
 					return False
 				break
+			elif curIndent <= curStmt.indent_level and curStmt.block_indent == -1:
+				return False
 		return True
 
 				  
