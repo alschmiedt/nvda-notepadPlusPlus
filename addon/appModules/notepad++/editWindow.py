@@ -45,12 +45,42 @@ class BlockStmts:
 		self.preStmts = pre_stmt
 	def addBlockIndent(self,block_indent):
 		self.block_indent = block_indent
+		
 
 
 class EditWindow(EditableTextWithAutoSelectDetection):
 	"""An edit window that implements all of the scripts on the edit field for Notepad++"""
 	StmtIdentifiers = ["def", "while", "if", "elif", "else", "for", "try", "with", "class", "except", "finally"]
-		
+	NLP_DICT = {
+		"if": "if",
+		"==" : "is equal to",
+		":" : "then",
+		"else" : "else", 
+		"while" : "while", 
+		"for" : "for every value",
+		"try" : "try",
+		"catch" : "catch",
+		"finally" : "finally",
+		"=" : "is",
+		">" : "greater than",
+		"<" : "less than",
+		">=" : "is greater than or equal to",
+		"<=" : "is less than or equal to",
+		"def" : "create a function named",
+		"elif" : "else if",
+		"[" : "start list",
+		"." : "with property",
+		"len" : "length of ",
+		"!=" : "is not equal to",
+		"return" : "return",
+		"True" : "true",
+		"False" : "false",
+		"+" : "plus",
+		"-": "minus",
+		"*": "multiplied by",
+		"/": "divided by"
+	}
+
 	def event_loseFocus(self):
 		#Hack: finding the edit field from the foreground window is unreliable, so cache it here.
 		self.appModule.edit = self
@@ -311,6 +341,41 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 					return
 		ui.message( "Good Indentation")
 		return
+		
+	def script_translateLine(self, gesture):
+		strLines = self.getDocumentLines()
+		docInfo = self.parent.next.next.firstChild.getChild(2).name
+		curLineNum = int(re.search("[^Ln:u'\s][0-9]*", docInfo).group(0))
+		s = strLines[curLineNum-1]
+		old_stdout = sys.stdout
+		result = StringIO()
+		sys.stdout = result
+		trans_string = ""
+		prev_token = ""
+		try:
+			g = tokenize(BytesIO(s.encode('utf-8')).readline)
+			sys.stdout = old_stdout
+			result_string = result.getvalue()
+			result_array = result_string.split("\n")
+			for i in result_array:
+				if len(i) > 0:
+					line_array = i.split("\t")
+					token_name = line_array[2].replace("'","")
+					token_type = line_array[1].replace("'","")
+					if token_name in self.NLP_DICT:
+						trans_string += self.NLP_DICT[token_name] + " "
+					elif token_type == "NAME" or token_type == "NUMBER":
+						trans_string += token_name + " "
+					elif token_name == "(" and prev_token == "NAME":
+						trans_string += "with parameters "
+					elif token_type == "STRING":
+						trans_string += "a string with value " + "token_name"
+					prev_token = token_type
+			ui.message(trans_string)
+		except IndentationError as ie:
+			sys.stdout = old_stdout
+			ui.message(ie)
+
 
 	def script_reportFindResult(self, gesture):
 		old = self.makeTextInfo(textInfos.POSITION_SELECTION)
@@ -341,4 +406,6 @@ class EditWindow(EditableTextWithAutoSelectDetection):
 		"kb:nvda+shift+r" : "functionParameters",
 		"kb:nvda+shift+t" : "identifyBlock",
 		"kb:nvda+shift+h" : "checkIndents",
+		"kb:nvda+shift+v" : "translateLine",
+
 	}
